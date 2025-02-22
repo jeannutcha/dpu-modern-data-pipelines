@@ -61,7 +61,8 @@ def _create_weather_table():
     sql = """
         CREATE TABLE IF NOT EXISTS weathers (
             dt BIGINT NOT NULL,
-            temp FLOAT NOT NULL
+            temp FLOAT NOT NULL,
+            feels_like FLOAT
         )
     """
     cursor.execute(sql)
@@ -80,9 +81,10 @@ def _load_data_to_postgres():
         data = json.load(f)
 
     temp = data["main"]["temp"]
+    feels_like = data["main"]["feels_like"]
     dt = data["dt"]
     sql = f"""
-        INSERT INTO weathers (dt, temp) VALUES ({dt}, {temp})
+        INSERT INTO weathers (dt, temp, feels_like) VALUES ({dt}, {temp}, {feels_like})
     """
     cursor.execute(sql)
     connection.commit()
@@ -127,16 +129,16 @@ with DAG(
         python_callable=_load_data_to_postgres,
     )
 
-    send_email = EmailOperator(
-        task_id="send_email",
-        to=["kan@odds.team"],
-        subject="Finished getting open weather data",
-        html_content="Done",
-    )
+    # send_email = EmailOperator(
+    #     task_id="send_email",
+    #     to=["kan@odds.team"],
+    #     subject="Finished getting open weather data",
+    #     html_content="Done",
+    # )
 
     end = EmptyOperator(task_id="end")
 
-    start >> get_weather_data >> [validate_temperature_range,validate_data] >> load_data_to_postgres >> send_email
+    start >> get_weather_data >> [validate_temperature_range,validate_data] >> load_data_to_postgres # >> send_email
     
-    start >> create_weather_table >> load_data_to_postgres
-    send_email >> end
+    start >> create_weather_table >> load_data_to_postgres  >> end
+    # send_email >> end
